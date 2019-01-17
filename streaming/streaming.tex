@@ -76,13 +76,10 @@ Similarly, errors are modelled but their details are not.
 \section{Reactive Streams}
 
 A reactive stream consist of an ordered series of zero or more messages optionally followed by a completion signal or an error.
-If there is a completion signal or an error, the reactive stream contains a finite series of messages.
-If there is no completion signal or error, the reactive stream contains an infinite series of messages.
-
 \begin{zed}
-RStream ::= BoundedStream \ldata \seq Message \rdata \mid \\
-	 \t3 FailedBoundedStream \ldata \seq Message \cross Error \rdata \mid \\
-	 \t3 UnboundedStream \ldata \nat \fun Message \rdata
+RStream ::= Next \ldata Message \cross RStream \rdata \mid \\
+	 \t3 Complete \mid \\
+	 \t3 Failed \ldata Error \rdata
 \end{zed}
 
 %=============================================================================
