@@ -1,4 +1,4 @@
-# riff specifications
+# riff Specifications
 
 Various specifications for the riff project. See the subdirectories for details.
 
