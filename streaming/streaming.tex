@@ -1,0 +1,139 @@
+\documentclass[a4paper,twoside,12pt]{article}
+\usepackage{../z/zed-cm}
+\usepackage{graphicx}
+\usepackage[nottoc,numbib]{tocbibind}
+%\usepackage{hyperref}
+\markboth{Draft}{Version 0.1}
+\pagestyle{myheadings}
+\begin{document}
+\parskip 10 pt
+\parindent 0 pt
+
+\def\Slash{\slash\hspace{0pt}}
+
+\title{Streaming Functions in riff}
+
+\author{Glyn Normington}
+
+\maketitle
+% The following three commands ensure the title page is without a page number but page numbering starts here.
+% Page numbers appear on subsequent pages, and are roman until the main body, which starts again at arabic 1.
+\thispagestyle{empty}
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+%=============================================================================
+
+This document provides a formal model of streaming functions in the riff FaaS project (\texttt{https://projectriff.io}).
+
+% Alt-Cmd-M -- \emph{}
+% Alt-Cmd-Z -- \zed{}
+% Alt-Cmd-X -- \axdef{}
+% Alt-Cmd-S -- \schema{}
+% Alt-Shift-Cmd-T -- \texttt{}
+
+% Type checking hacks
+\newcommand{\true}{true}
+\newcommand{\false}{false}
+\renewcommand{\emptyset}{\varnothing}
+%=============================================================================
+
+\clearpage
+\tableofcontents
+
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+%=============================================================================
+\section{Introduction}
+
+This document provides a formal model of streaming functions in the riff project.
+
+%=============================================================================
+\section{Overview of this document}
+
+Event streaming is fraught with ambiguous terminology. For example, the word stream has multiple, overlapping
+connotations. This document attempts to model streaming functions precisely. The model is abstract in the sense
+that it does not capture all facets of streaming functions, but those it does capture, it captures precisely and
+unambiguously.
+
+The Z specification language is used to capture the model, but sufficient English text is also provided that readers who do not know Z should be able to understand the model. The appendix contains a summary of the Z notation.
+For more information about Z, please consult the Z Manual (\texttt{https://www.cs.umd.edu/~mvz/handouts/z-manual.pdf}).
+The model was type checked using \texttt{fuzz} (\texttt{https://bitbucket.org/Spivey/fuzz}).
+
+%=============================================================================
+\section{Fundamentals}
+
+Streams consist of messages, but for our current purposes, the details of a message are irrelevant.
+Similarly, errors are modelled but their details are not.
+\begin{zed}
+[ Message, Error ] 
+\end{zed}
+
+%=============================================================================
+\newpage
+\section{Reactive Streams}
+
+A reactive stream consist of an ordered series of zero or more messages optionally followed by a completion signal or an error.
+If there is a completion signal or an error, the reactive stream contains a finite series of messages.
+If there is no completion signal or error, the reactive stream contains an infinite series of messages.
+
+\begin{zed}
+RStream ::= BoundedStream \ldata \seq Message \rdata \mid \\
+	 \t3 FailedBoundedStream \ldata \seq Message \cross Error \rdata \mid \\
+	 \t3 UnboundedStream \ldata \nat \fun Message \rdata
+\end{zed}
+
+%=============================================================================
+\section{Streaming Functions}
+
+A streaming function takes a reactive stream as input and produces another reactive stream as output.
+\begin{zed}
+StreamingFun == RStream \fun RStream
+\end{zed}
+
+Streaming functions may be chained together to produce another streaming function.
+The input stream of the chain is input to the 
+first function in the chain. The output stream of the first function is the input
+stream of the second function and so forth. The output stream of the chain is the output stream of the last function in the chain.
+\begin{axdef}
+Chain : \seq_1 StreamingFun \fun StreamingFun
+\where
+\forall f : StreamingFun; fs : \seq_1 StreamingFun @ \\
+    \t1 Chain(\langle f \rangle) = f \land \\
+    \t1 Chain(\langle f \rangle \cat fs) = Chain(fs) \circ f
+\end{axdef}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   A P P E N D I C E S
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+
+\appendix
+
+%=============================================================================
+%   Z   N O T A T I O N
+%=============================================================================
+\input{../z/z-notation.tex}
+
+%=============================================================================
+%   B I B L I O G R A P H Y
+%=============================================================================
+%\newpage
+%\begin{flushleft}
+%\begin{thebibliography}{99}
+%\label{sec:references}
+% `99' is a picture of the generated numeric references -- they are two digits in this bibliography
+% If we had a hundred or more we would have used 999, or whatever.
+
+%%  Example bibliography entry:
+%\bibitem{knuth76}                                                        % citation callout, e.g.: \cite{knuth76}
+%  Donald E. Knuth,                                                        % author
+%  \emph{The computer as Master Mind}.                    % title
+%  J. Recreational Mathematics, Vol.~9(1), 1976-1977. % publisher, or journal, volume and date
+
+%\end{thebibliography}
+%\end{flushleft}
+\end{document}
