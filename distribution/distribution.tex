@@ -1,0 +1,331 @@
+\documentclass[a4paper,twoside,12pt]{article}
+\usepackage{../z/zed-cm}
+\usepackage{graphicx}
+\usepackage[nottoc,numbib]{tocbibind}
+%\usepackage{hyperref}
+\markboth{Draft}{Version 0.1}
+\pagestyle{myheadings}
+\begin{document}
+\parskip 10 pt
+\parindent 0 pt
+
+\def\Slash{\slash\hspace{0pt}}
+
+\title{Image Registries}
+
+\author{Glyn Normington}
+
+\maketitle
+% The following three commands ensure the title page is without a page number but page numbering starts here.
+% Page numbers appear on subsequent pages, and are roman until the main body, which starts again at arabic 1.
+\thispagestyle{empty}
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+%=============================================================================
+
+This document provides a formal model of image registries.
+
+% Alt-Cmd-M -- \emph{}
+% Alt-Cmd-Z -- \zed{}
+% Alt-Cmd-X -- \axdef{}
+% Alt-Cmd-S -- \schema{}
+% Alt-Shift-Cmd-T -- \texttt{}
+
+% Type checking hacks
+\newcommand{\true}{true}
+\newcommand{\false}{false}
+\renewcommand{\emptyset}{\varnothing}
+%=============================================================================
+
+\clearpage
+\tableofcontents
+
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+%=============================================================================
+\section{Introduction}
+
+This document provides a formal model of image registries.
+
+%=============================================================================
+\section{Overview of this document}
+
+Docker Inc.\ introduced container images and registries to hold them and these were later standardised as part of the Open Container Initiative.
+
+This document models image references, repositories, and registries. It covers digests and tags.
+
+The Z specification language is used to capture the model, but sufficient English text is also provided that readers who do not know Z should be able to understand the model. The appendix contains a summary of the Z notation.
+For more information about Z, please consult the Z Manual (\texttt{https://www.cs.umd.edu/~mvz/handouts/z-manual.pdf}).
+The model was type checked using \texttt{fuzz} (\texttt{https://bitbucket.org/Spivey/fuzz}).
+
+%=============================================================================
+\section{Fundamentals}
+
+Images are opaque blobs as far as we are concerned here - the decomposition into layers is ignored.
+Similarly, cryptographic hashes, or \textit{hexes} to use the terminology of the OCI Distribution specification, tags, and (registry) hostnames and paths are modelled, but their details are not.
+\begin{zed}
+[ Image, Hex, Tag, Hostname, Path ] 
+\end{zed}
+
+There is a special reserved tag.
+\begin{axdef}
+    Latest : Tag
+\end{axdef}
+
+%=============================================================================
+\newpage
+\section{Content Digests}
+
+A content digest is a combination of a cryptographic hash function (such as \texttt{SHA-256}) or "algorithm, and the hash output by such a function. 
+\begin{schema}{ContentDigest}
+    alg: Image \fun Hex \\
+    hash: Hex \\ 
+\end{schema}
+
+The idea is that a content digest $d$ identifies an image $i$ if and only if:\\
+%%unchecked
+\begin{zed}
+\t1 d.alg~i = d.hash
+\end{zed}
+
+An optional content digest is modelled as a datatype.
+\begin{zed}
+    OptionalContentDigest ::= None | Dig \ldata ContentDigest \rdata
+\end{zed}
+
+%=============================================================================
+\newpage
+\section{Repositories}
+
+A repository is a collection of images indexed by content digest and by tag.
+\begin{schema}{Repo}
+    cd: ContentDigest \pfun Image \\
+    tag: Tag \pfun Image \\
+\where
+    \forall d : \dom cd @ d.alg~(cd~d) = d.hash \\
+    \ran tag \subseteq \ran cd \\
+\end{schema}
+The content digests identify the corresponding images. Each image identified by a tag is also identified by a content digest.
+
+Initially, a repository is empty.
+\begin{schema}{RepoInit}
+  Repo' \\
+\where
+  cd' = \emptyset \\
+  tag' = \emptyset \\
+\end{schema}
+ 
+ An image is added to a repository by \textit{pushing} it.
+\begin{schema}{RepoPush}
+  \Delta Repo \\
+  i? : Image \\
+  d? : ContentDigest \\
+  t? : Tag \\
+\where
+  cd' = cd \oplus \{ d? \mapsto i? \} \\
+  tag' = tag \oplus \{ t? \mapsto i? \} \\
+\end{schema}
+
+An image is retrieved from a repository by \textit{pulling} it.
+
+We can either pull using a content digest
+\begin{schema}{RepoPullByDigest}
+  \Xi Repo \\
+  d? : OptionalContentDigest \\
+  i! : Image \\
+\where
+  \exists d : ContentDigest | d? = Dig~d  \land d \in \dom cd @ i! = cd~d \\
+\end{schema}
+
+or, if a content digest is not supplied, by using a tag.
+\begin{schema}{RepoPullByTag}
+  \Xi Repo \\
+  t? : Tag \\
+  d? : OptionalContentDigest \\
+  i! : Image \\
+\where
+  d? = None \\
+  t? \in \dom tag \implies i! = tag~t? \\
+\end{schema}
+
+\begin{zed}
+  RepoPullOk \defs RepoPullByDigest \lor RepoPullByTag
+\end{zed}
+
+%=============================================================================
+\newpage
+\section{Registries}
+
+A registry is a collection of repositories index by path.
+\begin{schema}{Registry}
+    repo: Path \fun Repo \\
+\end{schema}
+Paths which do not exist are modelled as pointing to empty repositories.
+
+Initially a registry has only empty repositories.
+\begin{schema}{RegistryInit}
+  Registry' \\
+\where
+  \forall p : Path @ \\
+  \t1 \exists RepoInit @ \\
+  \t2 repo'~p = \theta Repo' \\
+\end{schema}
+
+We define a promotion schema which operates on a single repository in a registry.
+\begin{schema}{RegistryPromote}
+  \Delta Registry \\
+  \Delta Repo \\
+  p? : Path \\
+\where
+  p? \in \dom repo \\
+  \theta Repo = repo~p? \\
+  repo' = repo \oplus \{ p? \mapsto \theta Repo' \} \\
+\end{schema}
+
+We then promote the push and pull operations.
+\begin{zed}
+  RegistryPush \defs \exists \Delta Repo @ RepoPush \land RegistryPromote \\
+  RegistryPullOk \defs \exists \Delta Repo @ RepoPullOk \land RegistryPromote \\
+\end{zed}
+  
+Registries are arranged in a network indexed by hostname.
+\begin{schema}{Net}
+    reg: Hostname \pfun Registry \\
+\end{schema}
+
+Initiallly, there are no registries in the network.
+\begin{schema}{NetInit}
+  Net'
+\where
+  reg' = \emptyset
+\end{schema}
+
+We can add an empty registry to the network.
+\begin{schema}{NetAddRegistryOk}
+  \Delta Net \\
+  h? : Hostname \\
+\where
+  h? \notin \dom reg \\
+  \exists RegistryInit @ reg' = reg \cup \{ h? \mapsto \theta Registry' \} \\
+\end{schema}
+
+We can also remove a registry from the network.
+\begin{schema}{NetRemoveRegistryOk}
+  \Delta Net \\
+  h? : Hostname \\
+\where
+  h? \in \dom reg \\
+  reg' = \{ h? \} \ndres reg \\
+\end{schema}
+
+We define a promotion schema which operates on a single registry in a network.
+\begin{schema}{NetPromote}
+  \Delta Net \\
+  \Delta Registry \\
+  h? : Hostname \\
+\where
+  h? \in \dom reg \\
+  \theta Registry = reg~h? \\
+  reg' = reg \oplus \{ h? \mapsto \theta Registry' \} \\
+\end{schema}
+
+Finally, we promote the push and pull operations to work on a network.
+\begin{zed}
+  NetPushOk \defs \exists \Delta Registry @ RegistryPush \land NetPromote \\
+  NetPullOk \defs \exists \Delta Registry @ RegistryPullOk \land NetPromote
+\end{zed}
+Pushing can fail if there is no registry with the input hostname.
+
+%=============================================================================
+\newpage
+\section{Image References}
+
+An image reference identifies an image in a registry.
+\begin{schema}{Ref}
+    host: Hostname \\
+    path: Path \\
+    tag: Tag \\
+    dig : OptionalContentDigest \\
+\end{schema}
+A tag is always logically present, but if it is omitted from the textual representation of an image reference, it defaults to $Latest$.
+A content digest may be part of an image reference or may be omitted.
+
+So far the push and pull operations have accumulated several input parameters.
+\begin{schema}{PushParms}
+    h? : Hostname \\
+    p? : Path \\
+    t? : Tag \\
+    d? : ContentDigest \\
+\end{schema}
+\begin{schema}{PullParms}
+    h? : Hostname \\
+    p? : Path \\
+    t? : Tag \\
+    d? : OptionalContentDigest \\
+\end{schema}
+
+An image reference is mapped to push input parameters as follows.
+\begin{schema}{RefPushParms}
+    r? : Ref \\
+    PushParms \\
+\where
+    h? = r?.host \\
+    p? = r?.path \\
+    t? = r?.tag \\
+    r?.dig = None \\
+\end{schema}
+Pushing is not allowed with a content digest in the image reference.
+
+An image reference is mapped to pull input parameters as follows.
+\begin{schema}{RefPullParms}
+    r? : Ref \\
+    PullParms \\
+\where
+    h? = r?.host \\
+    p? = r?.path \\
+    t? = r?.tag \\
+    d? = r?.dig \\
+\end{schema}
+
+Push can then be reframed to take an image reference.
+\begin{zed}
+  RefPushOk \defs \exists PushParms @ NetPushOk \land RefPushParms \\
+  RefPullOk \defs \exists PullParms @ NetPullOk \land RefPullParms \\
+\end{zed}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   A P P E N D I C E S
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+
+\appendix
+
+%=============================================================================
+%   Z   N O T A T I O N
+%=============================================================================
+\input{../z/z-notation.tex}
+
+%=============================================================================
+%   B I B L I O G R A P H Y
+%=============================================================================
+%\newpage
+%\begin{flushleft}
+%\begin{thebibliography}{99}
+%\label{sec:references}
+% `99' is a picture of the generated numeric references -- they are two digits in this bibliography
+% If we had a hundred or more we would have used 999, or whatever.
+
+%%  Example bibliography entry:
+%\bibitem{knuth76}                                                        % citation callout, e.g.: \cite{knuth76}
+%  Donald E. Knuth,                                                        % author
+%  \emph{The computer as Master Mind}.                    % title
+%  J. Recreational Mathematics, Vol.~9(1), 1976-1977. % publisher, or journal, volume and date
+
+%\end{thebibliography}
+%\end{flushleft}
+\end{document}
