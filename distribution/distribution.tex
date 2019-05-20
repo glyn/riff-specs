@@ -79,7 +79,7 @@ There is a special reserved tag.
 \newpage
 \section{Content Digests}
 
-A content digest is a combination of a cryptographic hash function (such as \texttt{SHA-256}) or "algorithm, and the hash output by such a function. 
+A content digest is a combination of a cryptographic hash function (such as \texttt{SHA-256}) or ``algorithm'', and the hash output by such a function. 
 \begin{schema}{ContentDigest}
     alg: Image \fun Hex \\
     hash: Hex \\ 
@@ -122,12 +122,13 @@ Initially, a repository is empty.
 \begin{schema}{RepoPush}
   \Delta Repo \\
   i? : Image \\
-  d? : ContentDigest \\
   t? : Tag \\
 \where
-  cd' = cd \oplus \{ d? \mapsto i? \} \\
   tag' = tag \oplus \{ t? \mapsto i? \} \\
+  \exists d: ContentDigest @ \\
+  \t1 cd' = cd \oplus \{ d \mapsto i? \} \\
 \end{schema}
+The tag may be omitted in practice in which case it defaults to $Latest$. Note that the invariant of $Repo'$ ensures that the chosen digest identifies the input image. However, these is some non-determinism here in the choice of algorithm.
 
 An image is retrieved from a repository by \textit{pulling} it.
 
@@ -277,7 +278,7 @@ An image reference is mapped to push input parameters as follows.
     t? = r?.tag \\
     r?.dig = None \\
 \end{schema}
-Pushing is not allowed with a content digest in the image reference.
+Pushing is not allowed if the image reference has a content digest.
 
 An image reference is mapped to pull input parameters as follows.
 \begin{schema}{RefPullParms}
