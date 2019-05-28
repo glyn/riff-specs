@@ -108,7 +108,7 @@ A descriptor is a way of referring to an object in the same repository using a d
 \end{schema}
 
 We will model a repository as a collection of content addressable objects, which we will introduce in turn, along with their media types.
-These objects are change sets, image configurations, image manifests, and image indexes.
+These objects are change sets, image configurations, image manifests, and image indices.
 
 %=============================================================================
 \newpage
@@ -271,17 +271,17 @@ Also, all manifests have an appropriate media type and valid configuration and l
 
 %=============================================================================
 \newpage
-\section{Image Indexes}
+\section{Image Indices}
 
 To complete our description of image repositories, we add another object, the \textit{image index}. The main purpose of an image index is to
 enable a repository to contain multiple versions of an image for multiple platforms.
 
-Image indexes use extended descriptors which include platform information, which is not modelled further.
+Image indices use extended descriptors which include platform information, which is not modelled further.
 \begin{zed}
 [ Platform ] 
 \end{zed}
 
-There is a media type for image indexes which is used both in image indexes and in descriptors that reference them.
+There is a media type for image indices which is used both in image indices and in descriptors that reference them.
 \begin{axdef}
   IMAGE\_INDEX : MediaType \\
 \end{axdef}
@@ -293,9 +293,9 @@ A manifest descriptor is a descriptor with an additional property denoting a pla
 \where
   mediaType \in \{ IMAGE\_MANIFEST, IMAGE\_INDEX \} \\
 \end{schema}
-A manifest descriptor may refer to image manifests or image indexes.
+A manifest descriptor may refer to image manifests or image indices.
 
-An image index refers to zero or more image manifests and/or image indexes.
+An image index refers to zero or more image manifests and/or image indices.
 \begin{schema}{Index}
   schemaVersion : SchemaVersion \\
   mediaType : MediaType \\
@@ -309,36 +309,36 @@ An image index refers to zero or more image manifests and/or image indexes.
 
 We can now complete our model of image repositories.
 
-An image repository is a content addressable collection of change sets, configurations, image manifests, and image indexes.
+An image repository is a content addressable collection of change sets, configurations, image manifests, and image indices.
 \begin{schema}{Repository}
   RepositoryManifestsConfigsAndLayers \\
-  indexes: CAS[Index] \\
+  indices: CAS[Index] \\
 \where
-  indexes.identify = \emptyset \\
+  indices.identify = \emptyset \\
 \also
   \langle \dom changesets.deref, \dom configs.deref, \\
-  \t1 \dom manifests.deref, \dom indexes.deref  \rangle \partition digests \\
+  \t1 \dom manifests.deref, \dom indices.deref  \rangle \partition digests \\
 \also
-  \forall idx : \ran indexes.deref @ \\
+  \forall idx : \ran indices.deref @ \\
   \t1 idx.mediaType = IMAGE\_INDEX \land \\
   \t1 (\forall man : \ran idx.manifests @ \\
     \t2 (man.digest \in \dom manifests.deref \land \\
     \t2 man.size = manifests.size~man.digest) \lor \\
-    \t2 (man.digest \in \dom indexes.deref \land \\
-    \t2 man.size = indexes.size~man.digest)) \\
+    \t2 (man.digest \in \dom indices.deref \land \\
+    \t2 man.size = indices.size~man.digest)) \\
 \also
   \exists next : Index \rel Index | \forall i, j : Index | i \mapsto j \in next @ \\
-  \t1 (\exists m : \ran i.manifests @ indexes.deref~m.digest = j) @ \\
+  \t1 (\exists m : \ran i.manifests @ indices.deref~m.digest = j) @ \\
   \t2 next\plus \cap \id Index = \emptyset \\
 \end{schema}
-Image indexes do not have ids.
+Image indices do not have ids.
 
-Also, content addresses in the form of digests are partitioned between changesets, configs, manifests, and indexes.
+Also, content addresses in the form of digests are partitioned between changesets, configs, manifests, and indices.
 That is, each digest refers to at most one object in content addressable storage.
 
-Also, all image indexes have an appropriate media type and valid manifest descriptors (referring to image manifests and/or other image indexes).
+Also, all image indices have an appropriate media type and valid manifest descriptors (referring to image manifests and/or other image indices).
 
-Also, there are no cycles of image indexes\footnote{This is an assumption. See https://github.com/opencontainers/image-spec/issues/778.}.
+Also, there are no cycles of image indices.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   A P P E N D I C E S
