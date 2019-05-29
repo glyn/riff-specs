@@ -3,7 +3,7 @@
 \usepackage{graphicx}
 \usepackage[nottoc,numbib]{tocbibind}
 %\usepackage{hyperref}
-\markboth{Version 0.2}{Version 0.2}
+\markboth{Version 0.3}{Version 0.3}
 \pagestyle{myheadings}
 \begin{document}
 \parskip 10 pt
@@ -52,16 +52,13 @@ I am indebted to Chris Frost and Steve Powell for their helpful feedback.
 
 This document provides a formal model of image registries.
 
-%=============================================================================
-\section{Overview of this document}
-
-Docker Inc.\ (\cite{docker}) introduced \textit{container images} and \textit{registries} to hold them and these were later standardised as part of the Open Container Initiative (\cite{oci}). The reader is assumed to have a basic understanding of how images are used.
+Docker Inc. \cite{docker}\footnote{See the bibliography in Appendix \ref{sec:references}.} introduced \textit{container images} and \textit{registries} to hold them and these were later standardised as part of the Open Container Initiative \cite{oci}. The reader is assumed to have a basic understanding of how images are used.
 
 This document models image references, repositories, and registries. It covers digests and tags.
 
-The Z specification language is used to describe the model, but sufficient English text is also provided that readers who do not know Z should be able to understand what's going on. The appendix contains a summary of the Z notation.
-For more information about Z, please consult the Z Manual (\cite{zman}).
-The model was type checked using \texttt{fuzz} (\cite{fuzz}).
+The Z specification language is used to describe the model, but sufficient English text is also provided that readers who do not know Z should be able to understand what's going on. Appendix \ref{sec:znot} contains a summary of the Z notation.
+For more information about Z, please consult the Z Manual \cite{zman}.
+The model was type checked using \texttt{fuzz} \cite{fuzz}.
 
 %=============================================================================
 \section{Fundamentals}
@@ -96,10 +93,10 @@ The idea is that a content digest $d$ identifies an image $i$ if and only if app
 \end{zed}
 
 The limited set of algorithms is chosen so that given an image $i$ with a content digest $d$, it is extremely difficult, if not impossible, to construct
-another image $j$ with the same content digest:\\
+a distinct image $j$ with the same content digest:\\
 %%unchecked
 \begin{zed}
-\t1 d.alg~i = d.hash = d.alg~j
+\t1 i \neq j \land d.alg~i = d.hash = d.alg~j
 \end{zed}
 
 An optional content digest is modelled as a datatype.
@@ -124,7 +121,8 @@ A repository is a collection of images indexed by content digest and by tag.
     \forall d : \dom cd @ d.alg~(cd~d) = d.hash \\
     \ran tag \subseteq \ran cd \\
 \end{schema}
-The content digests identify the corresponding images and there is only one content digest per image. Each image identified by a tag is also identified by a content digest.
+The content digests identify the corresponding images and there is only one content digest per image (since this is chosen when the image added
+to the repository, as we shall soon see). Each image identified by a tag is also identified by a content digest.
 
 Initially, a repository is empty.
 \begin{schema}{RepoInit}
@@ -134,7 +132,7 @@ Initially, a repository is empty.
   tag' = \emptyset \\
 \end{schema}
  
-An image is added to a repository by \textit{pushing} it.
+An image is added to a repository by \textit{pushing} it. The operation takes any image and any tag and returns a content digest of the image.
 \begin{schema}{RepoPush}
   \Delta Repo \\
   i? : Image \\
@@ -144,21 +142,23 @@ An image is added to a repository by \textit{pushing} it.
   tag' = tag \oplus \{ t? \mapsto i? \} \\
   cd' = cd \oplus \{ d! \mapsto i? \} \\
 \end{schema}
-The tag may be omitted, in which case it defaults to $Latest$, although this is not modelled. Note that the invariant of $Repo'$ ensures that the output digest identifies the input image. There is, in theory, some non-determinism in the choice of algorithm, but, for OCI compliant implementations, SHA-256 is used everywhere.
+The tag may be omitted, in which case it defaults to $Latest$, although this is not modelled. Note that the invariant of $Repo'$ ensures that the output digest identifies the input image. There is, in theory, some non-determinism in the choice of algorithm, but for OCI compliant implementations, \texttt{SHA-256} is used everywhere.
 
 \newpage
 An image is retrieved from a repository by \textit{pulling} it.
 
-We can pull using a content digest.
+We can pull an image using a content digest.
 \begin{schema}{RepoPullByDigest}
   \Xi Repo \\
   d? : OptionalContentDigest \\
   i! : Image \\
 \where
-  d? \mapsto i! \in cd \circ Cd \\
+  d? \in \dom Cd \\
+  i! = cd(Cd~d?) \\
 \end{schema}
+The content digest is provided and is used to identify the output image.
 
-Alternatively, we can pull using a tag.
+Alternatively, we can pull and image using a tag.
 \begin{schema}{RepoPullByTag}
   \Xi Repo \\
   t? : Tag \\
@@ -166,14 +166,15 @@ Alternatively, we can pull using a tag.
   i! : Image \\
 \where
   d? = None \\
-  t? \mapsto i! \in tag \\
+  i! = tag~t? \\
 \end{schema}
+The content digest is not provided. The tag is used to identify the output image.
 
 A successful pull operation uses either a content digest or a tag.
 \begin{zed}
   RepoPullOk \defs RepoPullByDigest \lor RepoPullByTag
 \end{zed}
-If both a tag and a content digest are provided, the tag is ignored. Failure cases, such as ``not found'', are omitted from the model.
+If a content digest is provided, the image is pulled by digest and the tag is ignored. Failure cases, such as ``not found'', are omitted from the model.
 
 %=============================================================================
 \newpage
@@ -206,7 +207,7 @@ Some registry implementations, such as Amazon's ECR, require a repository to be 
 Other registry implementations such as Docker's registry and Google's GCR will create a repository automatically when the first image is pushed to it. We do not model automatic repository creation.
 
 \pagebreak
-We define a promotion schema\footnote{Promotion schemas are used to turn operations on a particular type into operations on collection of the type which operate on a single member of the collection and leave the rest unchanged} which operates on a single repository in a registry.
+We define a promotion schema\footnote{Promotion schemas are used to turn operations on a particular type into operations on a collection of the type which operate on a single member of the collection and leave the rest unchanged.} which operates on a single repository in a registry.
 \begin{schema}{RegistryPromote}
   \Delta Registry \\
   \Delta Repo \\
@@ -314,7 +315,7 @@ So far the push and pull operations have accumulated several input parameters.
     d? : OptionalContentDigest \\
 \end{schema}
 
-An image reference is mapped to push input parameters as follows.
+An image reference is related to push input parameters as follows.
 \begin{schema}{RefPushParms}
     r? : Ref \\
     PushParms \\
@@ -326,7 +327,7 @@ An image reference is mapped to push input parameters as follows.
 \end{schema}
 Pushing is not allowed if the image reference has a content digest.
 
-An image reference is mapped to pull input parameters as follows.
+An image reference is related to pull input parameters as follows.
 \begin{schema}{RefPullParms}
     r? : Ref \\
     PullParms \\
@@ -337,7 +338,7 @@ An image reference is mapped to pull input parameters as follows.
     d? = r?.dig \\
 \end{schema}
 
-Push and pull are then be reframed to take an image reference instead of the corresponding input parameters.
+Push and pull can then be reframed to take an image reference instead of the corresponding input parameters.
 \begin{zed}
   RefPushOk \defs \exists PushParms @ NetPushOk \land RefPushParms \\
   RefPullOk \defs \exists PullParms @ NetPullOk \land RefPullParms \\
@@ -357,6 +358,7 @@ Push and pull are then be reframed to take an image reference instead of the cor
 %=============================================================================
 \newpage
 \begin{flushleft}
+\renewcommand\refname{Bibliography}
 \begin{thebibliography}{99}
 \label{sec:references}
 % `99' is a picture of the generated numeric references -- they are two digits in this bibliography
