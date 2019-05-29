@@ -53,24 +53,24 @@ up an OCI repository and how content addressing is used to refer to these object
 %=============================================================================
 \section{Introduction}
 
-Docker Inc.\ (\cite{docker}) introduced \textit{container images} and \textit{registries} to hold them and these were later standardised as part of the Open Container Initiative (\cite{oci}). The reader is assumed to have a basic understanding of how images are used.
+Docker Inc.\ \cite{docker}\footnote{See the bibliography in Appendix \ref{sec:references}.} introduced \textit{container images} and \textit{registries} to hold them and these were later standardised as part of the Open Container Initiative \cite{oci}. The reader is assumed to have a basic understanding of how images are used.
 
-Registries are named collections of \textit{repositories}. The relationship is described formally in \textit{Image Registries} (\cite{registries}).
+Registries are named collections of \textit{repositories}. The relationship is described formally in \textit{Image Registries} \cite{registries}.
 
-This document models how image are represented and stored in repositories. This is based on the \textit{OCI Image Format Specification} (\cite{ociimage}). It does not cover all details, but aims to provide an overview of how images are structured as layers and gathered into a repository. The following diagram shows the main objects that are modelled.
+This document models how image are represented and stored in repositories. This is based on the \textit{OCI Image Format Specification} \cite{ociimage}. It does not cover all details, but aims to provide an overview of how images are structured as layers and gathered into a repository. The following diagram shows the main objects that are modelled.
 
 \includegraphics[width=17cm,left]{ociimage.jpeg}
 
-The Z specification language is used to describe the model, but sufficient English text is also provided that readers who do not know Z should be able to get a reasonable idea of what's going on. The appendix contains a summary of the Z notation.
-For more information about Z, please consult the Z Manual (\cite{zman}).
-The model was type checked using \texttt{fuzz} (\cite{fuzz}).
+The Z specification language is used to describe the model, but sufficient English text is also provided that readers who do not know Z should be able to get a reasonable idea of what's going on. Appendix \ref{sec:znot} contains a summary of the Z notation.
+For more information about Z, please consult the Z Manual \cite{zman}.
+The model was type checked using \texttt{fuzz} \cite{fuzz}.
 
 %=============================================================================
 \newpage
 \section{Content Addressing}
 
 Before we describe the objects which make up a repository, we model how objects refers to each other using \textit{content addressing}.
-In content addressing, a collision resistant function\footnote{collision resistant functions are designed so that it is extremely unlikely that distinct inputs produce the same output} is applied to the content of an object to produce a content address which can be used to refer to the object.
+In content addressing, a collision resistant function\footnote{Collision resistant functions are designed so that it is extremely unlikely that distinct inputs produce the same output.} is applied to the content of an object to produce a content address which can be used to refer to the object.
 
 OCI uses a form of \textit{content address}, known as a \textit{digest}, which is a cryptographic hash of the \textit{compressed} content of an object.
 \begin{zed}
@@ -353,6 +353,7 @@ Also, there are no cycles of image indices.
 %=============================================================================
 \newpage
 \begin{flushleft}
+\renewcommand\refname{Bibliography}
 \begin{thebibliography}{99}
 \label{sec:references}
 % `99' is a picture of the generated numeric references -- they are two digits in this bibliography
